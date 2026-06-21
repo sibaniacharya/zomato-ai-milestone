@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -15,6 +15,8 @@ from src.services.parser import ResponseParser
 from src.services.enricher import RecommendationEnricher
 from src.services.recommendation import RecommendationService
 from src.api.routes import router, get_repository, get_recommendation_service
+import threading
+import os
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -23,35 +25,46 @@ logger = logging.getLogger(__name__)
 # Global state
 app_state = {}
 
+def initialize_data(settings: Settings):
+    try:
+        # 1. Load & Preprocess Data
+        loader = DatasetLoader(settings)
+        raw_df = loader.load()
+        
+        preprocessor = DataPreprocessor(settings)
+        restaurants = preprocessor.preprocess(raw_df)
+        
+        # 2. Setup Repository
+        repository = RestaurantRepository(restaurants)
+        app_state["repository"] = repository
+        
+        # 3. Setup Services
+        filter_svc = RestaurantFilter(settings)
+        prompt_builder = PromptBuilder(settings)
+        groq_client = GroqClient(settings)
+        parser = ResponseParser()
+        enricher = RecommendationEnricher()
+        
+        recommendation_service = RecommendationService(
+            settings, filter_svc, prompt_builder, groq_client, parser, enricher
+        )
+        app_state["recommendation_service"] = recommendation_service
+        
+        logger.info("Application successfully initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize data: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up Zomato AI Recommendation Backend...")
     settings = Settings()
     
-    # 1. Load & Preprocess Data
-    loader = DatasetLoader(settings)
-    raw_df = loader.load()
+    # Run data initialization in a background thread to prevent blocking server startup
+    # This prevents the container from timing out or failing health checks
+    thread = threading.Thread(target=initialize_data, args=(settings,))
+    thread.daemon = True
+    thread.start()
     
-    preprocessor = DataPreprocessor(settings)
-    restaurants = preprocessor.preprocess(raw_df)
-    
-    # 2. Setup Repository
-    repository = RestaurantRepository(restaurants)
-    app_state["repository"] = repository
-    
-    # 3. Setup Services
-    filter_svc = RestaurantFilter(settings)
-    prompt_builder = PromptBuilder(settings)
-    groq_client = GroqClient(settings)
-    parser = ResponseParser()
-    enricher = RecommendationEnricher()
-    
-    recommendation_service = RecommendationService(
-        settings, filter_svc, prompt_builder, groq_client, parser, enricher
-    )
-    app_state["recommendation_service"] = recommendation_service
-    
-    logger.info("Application successfully initialized.")
     yield
     # Cleanup if needed
     logger.info("Shutting down...")
@@ -72,9 +85,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def get_repo_safe():
+    repo = app_state.get("repository")
+    if not repo:
+        raise HTTPException(status_code=503, detail="Server is still downloading and initializing data. Please try again in a few seconds.")
+    return repo
+
+def get_rec_svc_safe():
+    svc = app_state.get("recommendation_service")
+    if not svc:
+        raise HTTPException(status_code=503, detail="Server is still downloading and initializing data. Please try again in a few seconds.")
+    return svc
+
 # Dependency overrides
-app.dependency_overrides[get_repository] = lambda: app_state["repository"]
-app.dependency_overrides[get_recommendation_service] = lambda: app_state["recommendation_service"]
+app.dependency_overrides[get_repository] = get_repo_safe
+app.dependency_overrides[get_recommendation_service] = get_rec_svc_safe
 
 # Include router
 app.include_router(router, prefix="/api")

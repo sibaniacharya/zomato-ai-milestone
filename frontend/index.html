@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Zomato AI Recommendations</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#edb1ff",
+                        "tertiary": "#47d6ff",
+                        "surface": "#131314",
+                        "surface-container": "#201f20",
+                        "surface-container-high": "#2a2a2b",
+                        "surface-container-low": "#1c1b1c",
+                        "on-surface": "#e5e2e3",
+                        "on-surface-variant": "#d1c2d2"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "display-lg-mobile": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "button-text": ["Plus Jakarta Sans"],
+                        "label-caps": ["Plus Jakarta Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #131314; color: #e5e2e3; margin: 0; overflow-x: hidden; }
+        .glass-panel { background: rgba(14, 14, 15, 0.5); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: rgba(32, 31, 32, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
+        .glass-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(237, 177, 255, 0.2) inset; border-color: rgba(237, 177, 255, 0.3); }
+        .glass-input { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); color: #e5e2e3; transition: all 0.2s ease; }
+        .glass-input:focus { outline: none; border-color: #edb1ff; background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 2px rgba(237, 177, 255, 0.2); }
+        
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-up { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .btn-neon { background: linear-gradient(135deg, #9d50bb 0%, #6e208c 100%); position: relative; z-index: 1; transition: all 0.3s ease; }
+        .btn-neon::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #edb1ff 0%, #9d50bb 100%); border-radius: inherit; z-index: -1; transition: opacity 0.3s ease; opacity: 0; }
+        .btn-neon:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(237, 177, 255, 0.4); }
+        .btn-neon:hover::before { opacity: 1; }
+        
+        .chip-radio:checked + label { background: rgba(237, 177, 255, 0.15); border-color: #edb1ff; color: #edb1ff; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #edb1ff; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(237, 177, 255, 0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+    </style>
+</head>
+<body class="relative min-h-screen flex text-on-surface">
+
+<div class="fixed top-0 left-1/4 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+<div class="fixed bottom-0 right-1/4 w-[800px] h-[800px] bg-tertiary/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+<div class="relative z-10 flex w-full h-screen overflow-hidden">
+    <!-- Sidebar Navigation & Filters -->
+    <aside class="hidden md:flex flex-col w-80 h-full border-r border-white/5 glass-panel z-20 shrink-0">
+        <div class="p-6 flex items-center justify-between border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shadow-lg border border-white/10">
+                    <span class="material-symbols-outlined text-primary text-xl">restaurant</span>
+                </div>
+                <span class="font-display-lg-mobile text-primary tracking-tighter text-2xl font-bold">Zomato AI</span>
+            </div>
+        </div>
+
+        <form id="filter-form" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+            <div class="space-y-2">
+                <label class="text-xs tracking-widest text-on-surface-variant font-bold uppercase">Location</label>
+                <div class="relative">
+                    <select id="location-select" name="location" class="w-full glass-input rounded-lg px-4 py-3 appearance-none font-body-md cursor-pointer" required>
+                        <option value="" disabled selected>Loading locations...</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-xs tracking-widest text-on-surface-variant font-bold uppercase">Cuisine Preference</label>
+                <div class="relative">
+                    <select id="cuisine-select" name="cuisine" class="w-full glass-input rounded-lg px-4 py-3 appearance-none font-body-md cursor-pointer">
+                        <option value="">Any Cuisine</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <label class="text-xs tracking-widest text-on-surface-variant font-bold uppercase">Budget</label>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <input class="chip-radio hidden" id="budget-low" name="budget" type="radio" value="low"/>
+                        <label class="block w-full text-center py-2 px-3 rounded-full border border-white/10 text-on-surface-variant font-bold cursor-pointer transition-colors" for="budget-low">Low</label>
+                    </div>
+                    <div class="flex-1">
+                        <input class="chip-radio hidden" id="budget-med" name="budget" type="radio" value="medium" checked/>
+                        <label class="block w-full text-center py-2 px-3 rounded-full border border-white/10 text-on-surface-variant font-bold cursor-pointer transition-colors" for="budget-med">Medium</label>
+                    </div>
+                    <div class="flex-1">
+                        <input class="chip-radio hidden" id="budget-high" name="budget" type="radio" value="high"/>
+                        <label class="block w-full text-center py-2 px-3 rounded-full border border-white/10 text-on-surface-variant font-bold cursor-pointer transition-colors" for="budget-high">High</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs tracking-widest text-on-surface-variant font-bold uppercase">Min Rating</label>
+                    <span class="text-primary font-bold" id="rating-val">4.0</span>
+                </div>
+                <input id="rating-slider" name="min_rating" type="range" min="0" max="5" step="0.5" value="4.0" oninput="document.getElementById('rating-val').textContent = this.value"/>
+                <div class="flex justify-between text-xs text-on-surface-variant opacity-50"><span>0</span><span>5</span></div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-xs tracking-widest text-on-surface-variant font-bold uppercase">Additional Context</label>
+                <textarea id="additional-input" name="additional" class="w-full glass-input rounded-lg px-4 py-3 font-body-md resize-none h-24" placeholder="Anything else? (e.g., family friendly, rooftop...)"></textarea>
+            </div>
+            
+            <button type="submit" class="w-full py-4 rounded-xl btn-neon text-white font-bold flex items-center justify-center gap-2 mt-auto">
+                <span class="material-symbols-outlined">magic_button</span>
+                Find Restaurants
+            </button>
+        </form>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <header class="md:hidden flex items-center justify-between p-4 glass-panel border-b border-white/5 z-20">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">restaurant</span>
+                <span class="text-xl text-primary font-bold">Zomato AI</span>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 md:p-12 custom-scrollbar pb-24">
+            <div class="max-w-[1280px] mx-auto w-full">
+                
+                <div id="hero-section" class="mb-12 animate-fade-up">
+                    <h1 class="text-4xl md:text-5xl font-extrabold text-on-surface mb-4">Discover your next meal with <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary">AI.</span></h1>
+                    <p class="text-lg text-on-surface-variant max-w-2xl">I've analyzed millions of reviews, menus, and real-time data to find the perfect spots for your criteria.</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="hidden mb-12 animate-fade-up text-center py-20">
+                    <span class="material-symbols-outlined text-primary text-6xl animate-spin">progress_activity</span>
+                    <h2 class="text-2xl font-bold mt-4 text-on-surface">Analyzing choices...</h2>
+                    <p class="text-on-surface-variant mt-2">Consulting with the AI Concierge to curate your list.</p>
+                </div>
+
+                <!-- Summary Banner -->
+                <div id="summary-container" class="hidden glass-panel rounded-2xl p-6 mb-12 flex items-start gap-4 border border-primary/20 animate-fade-up relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+                    <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                        <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-on-surface mb-2">Curated Selection Ready</h3>
+                        <p id="summary-text" class="text-on-surface-variant leading-relaxed"></p>
+                    </div>
+                </div>
+
+                <!-- Results Grid -->
+                <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Cards injected via JS -->
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

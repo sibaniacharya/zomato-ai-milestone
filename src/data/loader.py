@@ -1,6 +1,5 @@
 import logging
 import pandas as pd
-from datasets import load_dataset
 from pathlib import Path
 from src.config import Settings
 import time
@@ -26,15 +25,25 @@ class DatasetLoader:
         return self._download(start_time)
 
     def _download(self, start_time: float) -> pd.DataFrame:
-        """Download from Hugging Face with retry + backoff."""
+        """Download from Hugging Face with retry + backoff using pure pandas to save memory."""
         retries = 3
         backoff = [1, 2, 4]
         
+        # Direct URL to the CSV file in the Hugging Face repo
+        csv_url = f"https://huggingface.co/datasets/{self.settings.HF_DATASET_NAME}/resolve/main/zomato.csv"
+        
+        # Only load the columns we actually need to save massive amounts of RAM
+        def usecols_filter(col_name):
+            return col_name.lower() in [
+                "name", "location", "city", "cuisines", "cost_for_two", 
+                "approx_cost(for two people)", "rating", "rate", 
+                "aggregate rating", "votes", "rest_type"
+            ]
+        
         for attempt in range(retries):
             try:
-                logger.info(f"Downloading dataset '{self.settings.HF_DATASET_NAME}' from Hugging Face (attempt {attempt + 1})")
-                dataset = load_dataset(self.settings.HF_DATASET_NAME, split="train")
-                df = dataset.to_pandas()
+                logger.info(f"Downloading dataset '{self.settings.HF_DATASET_NAME}' from Hugging Face via pure pandas (attempt {attempt + 1})")
+                df = pd.read_csv(csv_url, usecols=usecols_filter)
                 self._save_cache(df)
                 
                 duration = int((time.time() - start_time) * 1000)

@@ -23,7 +23,7 @@ This document outlines the known corner scenarios and edge cases for the Zomato 
 | **Unknown Location Input** | User searches for a city not in the dataset (e.g., "New York"). | Return a `ValidationError` / 400 Bad Request. The UI should suggest the closest valid locations from the dataset. |
 | **Excessively Long Preferences** | The `additional` free-text input exceeds 500 characters. | Truncate the text at 500 characters and log a warning to prevent excessive prompt token usage and potential prompt injection. |
 | **Overly Strict Filters** | Location, budget, and high rating combined result in 0 candidates. | Trigger the constraint relaxation pipeline. Relax `cuisine` first, then `budget`, then `min_rating`. Surface a warning in the UI: "Expanded filters to find results." |
-| **Zero Candidates After Relaxation** | Even after relaxing all constraints, no restaurants are found for the location. | Return an empty state response. Display "No results found" in the UI with suggestions to select a different location. |
+| **Zero Candidates After Relaxation** | Even after relaxing all constraints, no restaurants are found for the location. | Return an empty state response. Display "No results found" in the UI with suggestions to select a different location.  |
 
 ---
 

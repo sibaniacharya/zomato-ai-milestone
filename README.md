@@ -84,5 +84,5 @@ To run the automated test suite, use:
 pytest tests/
 ```
 
-##Deployed
+## Deployed
 https://zomato-ai-milestone.vercel.app/

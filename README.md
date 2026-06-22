@@ -83,3 +83,6 @@ To run the automated test suite, use:
 ```bash
 pytest tests/
 ```
+
+##Deployed
+https://zomato-ai-milestone.vercel.app/

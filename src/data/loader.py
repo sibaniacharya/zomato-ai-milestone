@@ -25,15 +25,12 @@ class DatasetLoader:
         return self._download(start_time)
 
     def _download(self, start_time: float) -> pd.DataFrame:
-        """Download from Hugging Face with retry + backoff using chunked parsing to save memory."""
+        """Download a subset from Hugging Face directly to avoid OOM and long timeouts on Railway."""
         retries = 3
         backoff = [1, 2, 4]
         
-        # Direct URL to the CSV file in the Hugging Face repo
         csv_url = f"https://huggingface.co/datasets/{self.settings.HF_DATASET_NAME}/resolve/main/zomato.csv"
-        local_csv_path = self.cache_path.parent / "zomato_temp.csv"
         
-        # Only load the columns we actually need to save massive amounts of RAM
         def usecols_filter(col_name):
             return col_name.lower() in [
                 "name", "location", "city", "cuisines", "cost_for_two", 
@@ -43,41 +40,18 @@ class DatasetLoader:
         
         for attempt in range(retries):
             try:
-                logger.info(f"Downloading dataset '{self.settings.HF_DATASET_NAME}' to disk (attempt {attempt + 1})")
+                logger.info(f"Streaming dataset '{self.settings.HF_DATASET_NAME}' (attempt {attempt + 1})")
                 
-                # 1. Stream the 500MB+ file to disk to avoid holding it in RAM
-                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-                import urllib.request
-                req = urllib.request.Request(csv_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req) as response:
-                    with open(local_csv_path, 'wb') as f:
-                        while True:
-                            chunk = response.read(8192)
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                
-                # 2. Parse in chunks so the C parser doesn't spike memory
-                logger.info("Parsing CSV in chunks to avoid OOM...")
-                chunks = []
-                for chunk_df in pd.read_csv(local_csv_path, usecols=usecols_filter, chunksize=10000):
-                    chunks.append(chunk_df)
-                    
-                df = pd.concat(chunks, ignore_index=True)
+                # Stream directly and limit to 50,000 rows to save memory and time
+                df = pd.read_csv(csv_url, usecols=usecols_filter, nrows=50000)
                 
                 self._save_cache(df)
-                
-                # Cleanup temp file
-                if local_csv_path.exists():
-                    local_csv_path.unlink()
                 
                 duration = int((time.time() - start_time) * 1000)
                 logger.info(f"Dataset loaded: {len(df)} rows, cache_hit=False, duration={duration}ms")
                 return df
             except Exception as e:
                 logger.warning(f"Download failed: {e}")
-                if local_csv_path.exists():
-                    local_csv_path.unlink()
                 if attempt < retries - 1:
                     time.sleep(backoff[attempt])
                 else:

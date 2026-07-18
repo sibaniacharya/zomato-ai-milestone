@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 class DatasetLoader:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.cache_path = Path(settings.DATA_CACHE_PATH)
+        # Hardcode path to ensure we always use the fixed dataset, ignoring any env variables
+        self.cache_path = Path("data/fixed_restaurants.parquet")
 
     def load(self) -> pd.DataFrame:
         """Load from cache if available, otherwise download from HF."""

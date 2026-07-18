@@ -106,13 +106,26 @@ app.dependency_overrides[get_recommendation_service] = get_rec_svc_safe
 # Include router
 app.include_router(router, prefix="/api")
 
+@app.get("/debug")
+async def debug_info():
+    import os
+    try:
+        data_dir = os.listdir("data") if os.path.exists("data") else []
+        app_dir = os.listdir(".")
+        file_size = os.path.getsize("data/fixed_restaurants.parquet") if os.path.exists("data/fixed_restaurants.parquet") else -1
+        return {
+            "status": "initializing" if "repository" not in app_state else "ready",
+            "error": str(app_state.get("error")),
+            "data_dir": data_dir,
+            "app_dir": app_dir,
+            "file_size": file_size
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/health", tags=["System"])
 def health_check():
     return {"status": "ok"}
-
-@app.get("/debug", tags=["System"])
-def debug_info():
-    return {"error": app_state.get("error", "No error recorded")}
 
 # Serve frontend static files
 import os

@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Dataset
     HF_DATASET_NAME: str = "ManikaSaini/zomato-restaurant-recommendation"
-    DATA_CACHE_PATH: Path = Path("data/restaurants.parquet")
+    DATA_CACHE_PATH: Path = Path("data/small_restaurants.parquet")
 
     # Budget tier thresholds (INR)
     BUDGET_LOW_MAX: int = 500

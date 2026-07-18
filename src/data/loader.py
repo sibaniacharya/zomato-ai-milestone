@@ -17,7 +17,7 @@ class DatasetLoader:
         
         if self.cache_path.exists():
             logger.info("Loading dataset from local cache")
-            df = pd.read_parquet(self.cache_path)
+            df = pd.read_parquet(str(self.cache_path))
             duration = int((time.time() - start_time) * 1000)
             logger.info(f"Dataset loaded: {len(df)} rows, cache_hit=True, duration={duration}ms")
             return df

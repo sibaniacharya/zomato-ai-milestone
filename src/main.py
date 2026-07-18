@@ -52,6 +52,8 @@ def initialize_data(settings: Settings):
         
         logger.info("Application successfully initialized.")
     except Exception as e:
+        import traceback
+        app_state["error"] = traceback.format_exc()
         logger.error(f"Failed to initialize data: {e}")
 
 @asynccontextmanager
@@ -107,6 +109,10 @@ app.include_router(router, prefix="/api")
 @app.get("/health", tags=["System"])
 def health_check():
     return {"status": "ok"}
+
+@app.get("/debug", tags=["System"])
+def debug_info():
+    return {"error": app_state.get("error", "No error recorded")}
 
 # Serve frontend static files
 import os

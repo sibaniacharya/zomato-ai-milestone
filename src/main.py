@@ -109,16 +109,24 @@ app.include_router(router, prefix="/api")
 @app.get("/debug")
 async def debug_info():
     import os
+    import hashlib
     try:
         data_dir = os.listdir("data") if os.path.exists("data") else []
         app_dir = os.listdir(".")
         file_size = os.path.getsize("data/fixed_restaurants.parquet") if os.path.exists("data/fixed_restaurants.parquet") else -1
+        
+        file_hash = None
+        if os.path.exists("data/fixed_restaurants.parquet"):
+            with open("data/fixed_restaurants.parquet", "rb") as f:
+                file_hash = hashlib.md5(f.read()).hexdigest()
+                
         return {
             "status": "initializing" if "repository" not in app_state else "ready",
             "error": str(app_state.get("error")),
             "data_dir": data_dir,
             "app_dir": app_dir,
-            "file_size": file_size
+            "file_size": file_size,
+            "file_hash": file_hash
         }
     except Exception as e:
         return {"error": str(e)}
